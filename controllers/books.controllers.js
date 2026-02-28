@@ -1,10 +1,33 @@
 const booksTable = require("../Models/book.model");
 const authorTable = require("../Models/author.model");
 const db = require('../db/index');
-const { eq } = require("drizzle-orm");
+const { eq, ilike, sql } = require("drizzle-orm");
 
 exports.getAllBooks =async function (req, res) {
     try {
+        const { search } = req.query;
+
+        if (search) {
+            const booksData = await db.select({
+                id: booksTable.id,
+                title: booksTable.title,
+                description: booksTable.discription,
+                author: {
+                    id: authorTable.id,
+                    firstName: authorTable.firstName,
+                    lastName: authorTable.lastName,
+                }
+            }).from(booksTable).leftJoin(authorTable, eq(booksTable.authorId, authorTable.id)).where(
+                sql`to_tsvector('english', ${booksTable.title})
+      @@ to_tsquery('english', ${title})`
+            );
+            
+            res.status(200).json({
+            success: true,
+            data: booksData,
+        });
+        }
+
         const booksData = await db.select({
             id: booksTable.id,
             title: booksTable.title,
