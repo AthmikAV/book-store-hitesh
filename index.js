@@ -1,5 +1,7 @@
+require("dotenv/config");
 const express = require('express');
 const app = express();
+
 const booksRoutes = require("./routes/book.routes");
 const PORT = 8000;
 

@@ -1,10 +1,23 @@
+const booksTable = require("../Models/book.model");
+const authorTable = require("../Models/author.model");
+const db = require('../db/index');
+const { eq } = require("drizzle-orm");
 
-let {BOOK} = require("../Models/notesDb");
-exports.getAllBooks = function (req, res) {
+exports.getAllBooks =async function (req, res) {
     try {
+        const booksData = await db.select({
+            id: booksTable.id,
+            title: booksTable.title,
+            description: booksTable.discription,
+            author: {
+                 id: authorTable.id,
+          firstName: authorTable.firstName,
+          lastName: authorTable.lastName,
+            }
+        }).from(booksTable).leftJoin(authorTable,eq(booksTable.authorId,authorTable.id));
         res.status(200).json({
             success: true,
-            data: BOOK,
+            data: booksData,
         });
     } catch (error) {
         res.status(400).json({
@@ -14,15 +27,19 @@ exports.getAllBooks = function (req, res) {
     }
 };
 
-exports.getBookById = function (req, res) {
+exports.getBookById =async function (req, res) {
     try {
-            const { id } = req.params;
-            const book = BOOK.find((book) => {
-                return book.id === parseInt(id)
-            });
-            if (isNaN(id)) {
-                return res.status(400).json({ error: `id must be of type number` })
+        const { id } = req.params;
+        const [book] = await db.select({
+            id: booksTable.id,
+            title: booksTable.title,
+            description: booksTable.discription,
+            author: {
+                id: authorTable.id,
+                firstName: authorTable.firstName,
+                lastName: authorTable.lastName,
             }
+        }).from(booksTable).leftJoin(authorTable, eq(booksTable.authorId, authorTable.id)).where(eq(booksTable.id, id)).limit(1);
             if (!book) {
                 return res.status(404).json({
                     success: true,
@@ -41,24 +58,32 @@ exports.getBookById = function (req, res) {
         }
 }
 
-exports.postBook = function (req, res) {
+exports.postBook =async function (req, res) {
     try {
-        const { title, author } = req.body;
-        if (!title || !author) return res.status(400).json({
-            success: false,
-            message: "Title and author are required"
-        });
-        const newBook = {
-            id: BOOK.length + 1,
-            title,
-            author
+        const { title, description,authorId } = req.body;
+        if (!title || title.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Title is required"
+            });
         }
-
-        BOOK.push(newBook);
+        if (!description || description.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Author is required"
+            });
+        }
         
+        const [newBook] = await db.insert(booksTable).values({
+            title,
+            discription: description,
+            authorId
+        }).returning({id:booksTable.id})
+
+
         res.status(200).json({
             success: true,
-            data: newBook,
+            bookId: newBook.id,
             message: "Book added succesfully"
         })
 
@@ -70,9 +95,9 @@ exports.postBook = function (req, res) {
     }
 };
 
-exports.deleteBookById = function (req, res) {
-    const id = parseInt(req.params.id);
-    const toDeleteBook = BOOK.find(book => book.id === id);
+exports.deleteBookById =async function (req, res) {
+    const { id } = req.params;
+    const toDeleteBook = await db.delete(booksTable).where(eq(booksTable.id,id))
     
     if (!toDeleteBook) {
         return res.status(404).json({
@@ -80,8 +105,6 @@ exports.deleteBookById = function (req, res) {
             message: "Book not found"
         })
     }
-    
-    BOOK = BOOK.filter(book => book.id !== id);
     res.status(200).json({
         data: toDeleteBook,
         message: "Book is Deleted Succesfully"
